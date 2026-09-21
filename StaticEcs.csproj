@@ -60,11 +60,11 @@
         <None Remove="CHANGELOG_2_0_0_ZH.md"/>
     </ItemGroup>
 
-    <ItemGroup Condition="'$(Configuration)' == 'Debug'">
-        <PackageReference Include="FFS.StaticPack.Debug" Version="1.2.6" />
-    </ItemGroup>
+    <ItemGroup Condition="'$(Configuration)' == 'Debug' Or '$(Configuration)' == 'ExportDebug'">
+	    <PackageReference Include="FFS.StaticPack.Debug" Version="1.2.6" />
+	</ItemGroup>
 
-    <ItemGroup Condition="'$(Configuration)' == 'Release'">
-        <PackageReference Include="FFS.StaticPack" Version="1.2.6" />
-    </ItemGroup>
+	<ItemGroup Condition="'$(Configuration)' == 'Release' Or '$(Configuration)' == 'ExportRelease'">
+	    <PackageReference Include="FFS.StaticPack" Version="1.2.6" />
+	</ItemGroup>
 </Project>
