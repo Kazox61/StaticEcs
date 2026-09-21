@@ -815,6 +815,167 @@ namespace FFS.Libraries.StaticEcs {
     }
 
     /// <summary>
+    /// Byte-for-byte twin of <see cref="UnmanagedPackArrayStrategy{T}"/> (same wire format, so snapshots are
+    /// interchangeable with JIT builds that use the original), but constrained to <c>struct</c> instead of
+    /// <c>unmanaged</c> so it can be constructed from generic code without reflection — which NativeAOT
+    /// cannot satisfy at runtime. Callers must guarantee <typeparamref name="T"/> holds no references
+    /// (<see cref="RuntimeHelpers.IsReferenceOrContainsReferences{T}"/>); <c>MemoryMarshal.AsBytes</c> throws otherwise.
+    /// </summary>
+    #if ENABLE_IL2CPP
+    [Il2CppSetOption(Option.NullChecks, Const.IL2CPPNullChecks)]
+    [Il2CppSetOption(Option.ArrayBoundsChecks, Const.IL2CPPArrayBoundsChecks)]
+    #endif
+    public readonly struct BlittablePackArrayStrategy<T> : IPackArrayStrategy<T> where T : struct {
+        [MethodImpl(AggressiveInlining)]
+        public bool IsUnmanaged() => true;
+
+        [MethodImpl(AggressiveInlining)]
+        public void Register() {
+            BinaryPack.Register<T?>(static (ref BinaryPackWriter writer, in T? value) => writer.WriteNullable(in value), static (ref BinaryPackReader reader) => reader.ReadNullable<T>());
+            BinaryPack.Register<T[]>(static (ref BinaryPackWriter writer, in T[] value) => default(BlittablePackArrayStrategy<T>).WriteArray(ref writer, value), static (ref BinaryPackReader reader) => default(BlittablePackArrayStrategy<T>).ReadArray(ref reader));
+            #if !FFS_PACK_DISABLE_MULTI_ARRAYS && !UNITY_WEBGL
+            BinaryPack.Register<T[,]>(static (ref BinaryPackWriter writer, in T[,] value) => default(BlittablePackArrayStrategy<T>).WriteArray(ref writer, value), static (ref BinaryPackReader reader) => default(BlittablePackArrayStrategy<T>).ReadArray2D(ref reader));
+            BinaryPack.Register<T[,,]>(static (ref BinaryPackWriter writer, in T[,,] value) => default(BlittablePackArrayStrategy<T>).WriteArray(ref writer, value), static (ref BinaryPackReader reader) => default(BlittablePackArrayStrategy<T>).ReadArray3D(ref reader));
+            #endif
+        }
+
+        [MethodImpl(AggressiveInlining)]
+        public void WriteArray(ref BinaryPackWriter writer, T[] value) {
+            if (value == null) {
+                writer.WriteNotNullFlag(null);
+                return;
+            }
+            WriteArray(ref writer, value, 0, value.Length);
+        }
+
+        // Layout, as WriteArrayUnmanaged: not-null flag, int count, uint byte size, raw bytes.
+        [MethodImpl(AggressiveInlining)]
+        public void WriteArray(ref BinaryPackWriter writer, T[] value, int idx, int count) {
+            if (!writer.WriteNotNullFlag(value)) {
+                return;
+            }
+            writer.WriteInt(count);
+            var sizePoint = writer.MakePoint(sizeof(uint));
+            if (count > 0) {
+                WriteBytes(ref writer, MemoryMarshal.AsBytes(new ReadOnlySpan<T>(value, idx, count)));
+            }
+            writer.WriteUintAt(sizePoint, writer.Position - (sizePoint + sizeof(uint)));
+        }
+
+        [MethodImpl(AggressiveInlining)]
+        public T[] ReadArray(ref BinaryPackReader reader) {
+            T[] result = null;
+            ReadArray(ref reader, ref result, 0);
+            return result;
+        }
+
+        [MethodImpl(AggressiveInlining)]
+        public void ReadArray(ref BinaryPackReader reader, ref T[] result) {
+            ReadArray(ref reader, ref result, 0);
+        }
+
+        [MethodImpl(AggressiveInlining)]
+        public void ReadArray(ref BinaryPackReader reader, ref T[] result, int idx) {
+            if (reader.ReadNullFlag()) {
+                result = null;
+                return;
+            }
+            var count = reader.ReadInt();
+            var byteSize = reader.ReadUint();
+            if (result == null || count + idx > result.Length) {
+                result = new T[count + idx];
+            }
+            if (count > 0) {
+                ReadBytes(ref reader, MemoryMarshal.AsBytes(result.AsSpan(idx, count)), byteSize);
+            }
+        }
+
+        #if !FFS_PACK_DISABLE_MULTI_ARRAYS && !UNITY_WEBGL
+        [MethodImpl(AggressiveInlining)]
+        public void WriteArray(ref BinaryPackWriter writer, T[,] value) {
+            if (!writer.WriteNotNullFlag(value)) {
+                return;
+            }
+            var dim0 = value.GetLength(0);
+            var dim1 = value.GetLength(1);
+            writer.WriteInt(dim0);
+            writer.WriteInt(dim1);
+            var sizePoint = writer.MakePoint(sizeof(uint));
+            if (dim0 != 0 && dim1 != 0) {
+                WriteBytes(ref writer, MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref value[0, 0], dim0 * dim1)));
+            }
+            writer.WriteUintAt(sizePoint, writer.Position - (sizePoint + sizeof(uint)));
+        }
+
+        [MethodImpl(AggressiveInlining)]
+        public void WriteArray(ref BinaryPackWriter writer, T[,,] value) {
+            if (!writer.WriteNotNullFlag(value)) {
+                return;
+            }
+            var dim0 = value.GetLength(0);
+            var dim1 = value.GetLength(1);
+            var dim2 = value.GetLength(2);
+            writer.WriteInt(dim0);
+            writer.WriteInt(dim1);
+            writer.WriteInt(dim2);
+            var sizePoint = writer.MakePoint(sizeof(uint));
+            if (dim0 != 0 && dim1 != 0 && dim2 != 0) {
+                WriteBytes(ref writer, MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref value[0, 0, 0], dim0 * dim1 * dim2)));
+            }
+            writer.WriteUintAt(sizePoint, writer.Position - (sizePoint + sizeof(uint)));
+        }
+
+        [MethodImpl(AggressiveInlining)]
+        public T[,] ReadArray2D(ref BinaryPackReader reader) {
+            if (reader.ReadNullFlag()) {
+                return null;
+            }
+            var dim0 = reader.ReadInt();
+            var dim1 = reader.ReadInt();
+            var byteSize = reader.ReadUint();
+            var result = new T[dim0, dim1];
+            if (dim0 != 0 && dim1 != 0) {
+                ReadBytes(ref reader, MemoryMarshal.AsBytes(MemoryMarshal.CreateSpan(ref result[0, 0], dim0 * dim1)), byteSize);
+            }
+            return result;
+        }
+
+        [MethodImpl(AggressiveInlining)]
+        public T[,,] ReadArray3D(ref BinaryPackReader reader) {
+            if (reader.ReadNullFlag()) {
+                return null;
+            }
+            var dim0 = reader.ReadInt();
+            var dim1 = reader.ReadInt();
+            var dim2 = reader.ReadInt();
+            var byteSize = reader.ReadUint();
+            var result = new T[dim0, dim1, dim2];
+            if (dim0 != 0 && dim1 != 0 && dim2 != 0) {
+                ReadBytes(ref reader, MemoryMarshal.AsBytes(MemoryMarshal.CreateSpan(ref result[0, 0, 0], dim0 * dim1 * dim2)), byteSize);
+            }
+            return result;
+        }
+        #endif
+
+        [MethodImpl(AggressiveInlining)]
+        private static void WriteBytes(ref BinaryPackWriter writer, ReadOnlySpan<byte> bytes) {
+            writer.EnsureSize((uint)bytes.Length);
+            bytes.CopyTo(writer.Buffer.AsSpan((int)writer.Position));
+            writer.Position += (uint)bytes.Length;
+        }
+
+        [MethodImpl(AggressiveInlining)]
+        private static void ReadBytes(ref BinaryPackReader reader, Span<byte> destination, uint byteSize) {
+            #if FFS_ECS_DEBUG
+            if (byteSize != destination.Length) throw new StaticEcsException($"[BlittablePackArrayStrategy<{typeof(T)}>] The number of bytes has changed - stored {byteSize}, actual {destination.Length}");
+            #endif
+            reader.Buffer.AsSpan((int)reader.Position, (int)byteSize).CopyTo(destination);
+            reader.Position += byteSize;
+        }
+    }
+
+
+    /// <summary>
     /// Reflection-based auto-discovery and registration of all ECS types in specified assemblies.
     /// Scans for value types (structs) implementing ECS marker interfaces and registers them
     /// with the target <c>World&lt;TWorld&gt;</c> using default configuration.
@@ -955,24 +1116,20 @@ namespace FFS.Libraries.StaticEcs {
                    ?? throw new StaticEcsException($"AutoRegistration: method AutoRegister not found on {genericType.Name}");
         }
 
-        #if NET5_0_OR_GREATER
-        [DynamicDependency(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor, typeof(UnmanagedPackArrayStrategy<>))]
-        [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Generic instantiation is pre-compiled because types are statically referenced in consuming code.")]
-        [UnconditionalSuppressMessage("Trimming", "IL2055", Justification = "Types preserved by DynamicDependency above.")]
-        [UnconditionalSuppressMessage("Trimming", "IL2037", Justification = "UnmanagedPackArrayStrategy<T> constructor is preserved by DynamicDependency.")]
-        #endif
+        /// <summary>
+        /// Picks bulk byte-copy serialization for <typeparamref name="T"/> when it contains no references.
+        /// Reflection-free on purpose: building <c>UnmanagedPackArrayStrategy&lt;T&gt;</c> through
+        /// <c>MakeGenericType</c> has no pre-generated instantiation under NativeAOT, so the old
+        /// try/catch quietly returned <c>null</c> and every such component fell back to per-element
+        /// serialization, which silently drops the data when <typeparamref name="T"/> has no custom
+        /// <c>Write</c>/<c>Read</c>.
+        /// </summary>
         internal static IPackArrayStrategy<T> TryCreateUnmanagedPackArrayStrategy<T>() where T : struct {
             if (RuntimeHelpers.IsReferenceOrContainsReferences<T>()) {
                 return null;
             }
-            
-            try {
-                var unmanagedPackStrategyType = typeof(UnmanagedPackArrayStrategy<>).MakeGenericType(typeof(T));
-                return (IPackArrayStrategy<T>)Activator.CreateInstance(unmanagedPackStrategyType);
-            }
-            catch (Exception) {
-                return null;
-            }
+
+            return new BlittablePackArrayStrategy<T>();
         }
 
         #if NET5_0_OR_GREATER
