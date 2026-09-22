@@ -156,7 +156,11 @@ namespace FFS.Libraries.StaticEcs {
         
         #region TYPE REGISTRATION
         [MethodImpl(AggressiveInlining)]
-        internal static void RegisterComponentType<T>(ComponentTypeConfig<T> config, string typeName, bool? nonSerializable = null)
+        internal static void RegisterComponentType<
+            #if NET5_0_OR_GREATER
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
+            #endif
+            T>(ComponentTypeConfig<T> config, string typeName, bool? nonSerializable = null)
             where T : struct, IComponent {
             #if FFS_ECS_DEBUG
             AssertWorldIsCreated(WorldTypeName);
@@ -175,14 +179,22 @@ namespace FFS.Libraries.StaticEcs {
         /// <param name="config">Component configuration for <see cref="Multi{T}"/>.</param>
         /// <param name="elementStrategy">Serialization strategy for elements. Null uses default <c>StructPackArrayStrategy</c>.</param>
         [MethodImpl(AggressiveInlining)]
-        internal static void RegisterMultiComponentType<T>(ComponentTypeConfig<Multi<T>> config, IPackArrayStrategy<T> elementStrategy, string typeName)
+        internal static void RegisterMultiComponentType<
+            #if NET5_0_OR_GREATER
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
+            #endif
+            T>(ComponentTypeConfig<Multi<T>> config, IPackArrayStrategy<T> elementStrategy, string typeName)
             where T : struct, IMultiComponent {
             Multi<T>.ElementStrategy = elementStrategy ?? AutoRegistration.TryCreateUnmanagedPackArrayStrategy<T>() ?? new StructPackArrayStrategy<T>();
             RegisterComponentType(config, typeName, typeof(INonSerializable).IsAssignableFrom(typeof(T)));
         }
 
         [MethodImpl(AggressiveInlining)]
-        internal static void RegisterTagType<T>(TagTypeConfig<T> config) where T : struct, ITag {
+        internal static void RegisterTagType<
+            #if NET5_0_OR_GREATER
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
+            #endif
+            T>(TagTypeConfig<T> config) where T : struct, ITag {
             #if FFS_ECS_DEBUG
             AssertWorldIsCreated(WorldTypeName);
             AssertNotRegisteredComponent<T>(WorldTypeName);
@@ -193,7 +205,11 @@ namespace FFS.Libraries.StaticEcs {
         }
 
         [MethodImpl(AggressiveInlining)]
-        internal static void RegisterEventType<T>(EventTypeConfig<T> config) where T : struct, IEvent {
+        internal static void RegisterEventType<
+            #if NET5_0_OR_GREATER
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
+            #endif
+            T>(EventTypeConfig<T> config) where T : struct, IEvent {
             #if FFS_ECS_DEBUG
             AssertWorldIsCreatedOrInitialized(WorldTypeName);
             AssertNotRegisteredEvent<T>(WorldTypeName);

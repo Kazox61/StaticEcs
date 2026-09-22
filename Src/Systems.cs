@@ -32,8 +32,9 @@ namespace FFS.Libraries.StaticEcs {
     /// Interface for ECS systems. Systems contain game logic that operates on entities.
     /// All methods have default empty implementations — override only what you need.
     /// <para>
-    /// Method detection uses reflection at registration time (similar to <see cref="IComponent"/> hooks):
-    /// only overridden methods are called at runtime, so unimplemented methods have zero cost.
+    /// Lifecycle methods are called through the interface, whose defaults make unimplemented methods no-ops.
+    /// This keeps dispatch compatible with NativeAOT, where reflection metadata for concrete system methods
+    /// may be trimmed.
     /// </para>
     /// </summary>
     public interface ISystem {
@@ -47,7 +48,7 @@ namespace FFS.Libraries.StaticEcs {
         /// <summary>
         /// Called every frame by <see cref="World{TWorld}.Systems{SysType}.Update"/>, but only if
         /// <see cref="UpdateIsActive"/> returns <c>true</c>. This is the main per-frame logic entry point.
-        /// Only invoked if the system actually overrides this method.
+        /// Systems that do not override this method execute its empty default implementation.
         /// </summary>
         public void Update() { }
 
@@ -416,10 +417,10 @@ namespace FFS.Libraries.StaticEcs {
                     Order = order,
                     System = boxedSystem,
                     Index = AllSystemsCount,
-                    HasDestroy = SystemType<TSystem>.HasDestroy(),
-                    HasInit = SystemType<TSystem>.HasInit(),
-                    HasUpdate = SystemType<TSystem>.HasUpdate(),
-                    HasUpdateIsActive = SystemType<TSystem>.HasUpdateIsActive()
+                    HasDestroy = true,
+                    HasInit = true,
+                    HasUpdate = true,
+                    HasUpdateIsActive = true
                 };
 
                 var guid = boxedSystem.Guid();

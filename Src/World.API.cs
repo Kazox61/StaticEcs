@@ -1489,7 +1489,11 @@ namespace FFS.Libraries.StaticEcs {
             /// <typeparam name="T">Component type — must be a struct implementing <see cref="IComponent"/>.</typeparam>
             /// <returns>This registrar for chaining.</returns>
             [MethodImpl(AggressiveInlining)]
-            public TypeRegistrar Component<T>() where T : struct, IComponent {
+            public TypeRegistrar Component<
+                #if NET5_0_OR_GREATER
+                [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
+                #endif
+                T>() where T : struct, IComponent {
                 ComponentTypeConfig<T> config = default;
                 if (default(T) is IComponentConfig<T> cfg) {
                     config = cfg.Config();
@@ -1505,7 +1509,11 @@ namespace FFS.Libraries.StaticEcs {
             /// <typeparam name="T">Tag type — must be a struct implementing <see cref="ITag"/>.</typeparam>
             /// <returns>This registrar for chaining.</returns>
             [MethodImpl(AggressiveInlining)]
-            public TypeRegistrar Tag<T>() where T : struct, ITag {
+            public TypeRegistrar Tag<
+                #if NET5_0_OR_GREATER
+                [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
+                #endif
+                T>() where T : struct, ITag {
                 TagTypeConfig<T> config = default;
                 if (default(T) is ITagConfig<T> cfg) {
                     config = cfg.Config();
@@ -1521,7 +1529,11 @@ namespace FFS.Libraries.StaticEcs {
             /// <typeparam name="T">Event type — must be a struct implementing <see cref="IEvent"/>.</typeparam>
             /// <returns>This registrar for chaining.</returns>
             [MethodImpl(AggressiveInlining)]
-            public TypeRegistrar Event<T>() where T : struct, IEvent {
+            public TypeRegistrar Event<
+                #if NET5_0_OR_GREATER
+                [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
+                #endif
+                T>() where T : struct, IEvent {
                 EventTypeConfig<T> config = default;
                 if (default(T) is IEventConfig<T> cfg) {
                     config = cfg.Config();
@@ -1537,7 +1549,11 @@ namespace FFS.Libraries.StaticEcs {
             /// <typeparam name="T">Link type implementing <see cref="ILinkType"/>.</typeparam>
             /// <returns>This registrar for chaining.</returns>
             [MethodImpl(AggressiveInlining)]
-            public TypeRegistrar Link<T>() where T : unmanaged, ILinkType {
+            public TypeRegistrar Link<
+                #if NET5_0_OR_GREATER
+                [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
+                #endif
+                T>() where T : unmanaged, ILinkType {
                 ComponentTypeConfig<Link<T>> config = default;
                 if (default(T) is ILinkConfig<T> cfg) {
                     config = cfg.Config<TWorld>();
@@ -1553,7 +1569,11 @@ namespace FFS.Libraries.StaticEcs {
             /// <typeparam name="T">Links type implementing <see cref="ILinksType"/>.</typeparam>
             /// <returns>This registrar for chaining.</returns>
             [MethodImpl(AggressiveInlining)]
-            public TypeRegistrar Links<T>() where T : unmanaged, ILinksType {
+            public TypeRegistrar Links<
+                #if NET5_0_OR_GREATER
+                [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
+                #endif
+                T>() where T : unmanaged, ILinksType {
                 ComponentTypeConfig<Links<T>> config = default;
                 if (default(T) is ILinksConfig<T> cfg) {
                     config = cfg.Config<TWorld>();
@@ -1569,7 +1589,11 @@ namespace FFS.Libraries.StaticEcs {
             /// <typeparam name="T">Multi-component value type implementing <see cref="IMultiComponent"/>.</typeparam>
             /// <returns>This registrar for chaining.</returns>
             [MethodImpl(AggressiveInlining)]
-            public TypeRegistrar Multi<T>() where T : struct, IMultiComponent {
+            public TypeRegistrar Multi<
+                #if NET5_0_OR_GREATER
+                [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)]
+                #endif
+                T>() where T : struct, IMultiComponent {
                 ComponentTypeConfig<Multi<T>> config = default;
                 IPackArrayStrategy<T> elementStrategy = null;
                 if (default(T) is IMultiComponentConfig<T> cfg) {
